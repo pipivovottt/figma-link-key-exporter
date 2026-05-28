@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color: #1f2328;
+        background: #ffffff;
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #ffffff;
+      }
+
+      .app {
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+        line-height: 1.3;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        overflow: hidden;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        background: #f6f8fa;
+      }
+
+      .tabs .tab {
+        height: 32px;
+        border: 0;
+        border-radius: 0;
+        color: #57606a;
+        background: transparent;
+        font-size: 12px;
+      }
+
+      .tabs .tab + .tab {
+        border-left: 1px solid #d0d7de;
+      }
+
+      .tabs .tab[aria-selected="true"] {
+        color: #ffffff;
+        background: #0969da;
+      }
+
+      .panels {
+        display: flex;
+        flex: 1;
+        min-height: 250px;
+      }
+
+      .panel {
+        display: none;
+        flex: 1;
+      }
+
+      .panel.active {
+        display: flex;
+      }
+
+      textarea {
+        flex: 1;
+        width: 100%;
+        min-height: 240px;
+        resize: none;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 12px;
+        color: #24292f;
+        background: #ffffff;
+        font-family:
+          ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Monaco,
+          Consolas,
+          "Liberation Mono",
+          monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        outline: none;
+      }
+
+      textarea:focus {
+        border-color: #0969da;
+        box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.16);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 120px;
+        gap: 10px;
+      }
+
+      button {
+        height: 36px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .primary {
+        color: #ffffff;
+        background: #0969da;
+      }
+
+      .primary:hover {
+        background: #0759ba;
+      }
+
+      .secondary {
+        color: #24292f;
+        border-color: #d0d7de;
+        background: #f6f8fa;
+      }
+
+      .secondary:hover {
+        background: #eef1f4;
+      }
+
+      .status {
+        min-height: 18px;
+        color: #57606a;
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .status.error {
+        color: #cf222e;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1 class="title">批量导出链接与 Key</h1>
+        <nav class="tabs" aria-label="导出结果">
+          <button class="tab" id="links-tab" type="button" aria-selected="true" data-tab="links">链接</button>
+          <button class="tab" id="keys-tab" type="button" aria-selected="false" data-tab="keys">Key</button>
+        </nav>
+      </header>
+
+      <div class="panels">
+        <section class="panel active" id="links-panel">
+          <textarea id="links-output" placeholder="选中画板、组件或组件集后点击导出"></textarea>
+        </section>
+        <section class="panel" id="keys-panel">
+          <textarea id="keys-output" placeholder="选中组件或组件集后点击导出"></textarea>
+        </section>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="export" type="button">导出</button>
+        <button class="secondary" id="copy" type="button">复制</button>
+      </div>
+
+      <div class="status" id="status"></div>
+    </main>
+
+    <script>
+      const tabs = Array.from(document.querySelectorAll(".tab"));
+      const panels = {
+        links: document.getElementById("links-panel"),
+        keys: document.getElementById("keys-panel")
+      };
+      const outputs = {
+        links: document.getElementById("links-output"),
+        keys: document.getElementById("keys-output")
+      };
+      const status = document.getElementById("status");
+      const exportButton = document.getElementById("export");
+      const copyButton = document.getElementById("copy");
+      let activeTab = "links";
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.classList.toggle("error", isError);
+      }
+
+      function copyWithSelection(text) {
+        const output = outputs[activeTab];
+        output.focus();
+        output.select();
+        output.setSelectionRange(0, text.length);
+        return document.execCommand("copy");
+      }
+
+      function setActiveTab(tabName) {
+        activeTab = tabName;
+
+        tabs.forEach((tab) => {
+          const selected = tab.dataset.tab === tabName;
+          tab.setAttribute("aria-selected", String(selected));
+        });
+
+        Object.entries(panels).forEach(([name, panel]) => {
+          panel.classList.toggle("active", name === tabName);
+        });
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
+      });
+
+      exportButton.addEventListener("click", () => {
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: "export-selected-data"
+            }
+          },
+          "https://www.figma.com"
+        );
+      });
+
+      copyButton.addEventListener("click", async () => {
+        const output = outputs[activeTab];
+
+        if (!output.value) {
+          setStatus("没有可复制的内容", true);
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(output.value);
+          } else if (!copyWithSelection(output.value)) {
+            throw new Error("Clipboard copy failed");
+          }
+
+          setStatus("已复制到剪贴板");
+        } catch (error) {
+          if (copyWithSelection(output.value)) {
+            setStatus("已复制到剪贴板");
+            return;
+          }
+
+          setStatus("复制失败，请使用系统快捷键复制", true);
+        }
+      });
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage;
+
+        if (!message || message.type !== "export-result") {
+          return;
+        }
+
+        outputs.links.value = message.linksText || "";
+        outputs.keys.value = message.keysText || "";
+
+        if (message.error) {
+          setStatus(message.error, true);
+          return;
+        }
+
+        setStatus(`已生成 ${message.linksCount || 0} 条链接，${message.keysCount || 0} 条 Key`);
+      };
+    </script>
+  </body>
+</html>

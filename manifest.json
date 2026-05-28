@@ -1,0 +1,13 @@
+{
+  "name": "批量导出链接与 Key",
+  "id": "figma-link-key-exporter",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "enablePrivatePluginApi": true,
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}
